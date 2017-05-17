@@ -1,0 +1,104 @@
+<html>
+  <head>
+    <title>PoC</title>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>	
+	<script src="https://cdn.webrtc-experiment.com/MediaStreamRecorder.js"></script>
+	
+	<style>		
+		.center {
+			position: absolute;
+			top: 50%;
+			left: 32.5%;
+			width: 35%;
+			padding: 20px;
+			border: 3px solid #73AD21;
+			transform: translateY(-50%); 
+		}
+		
+		.voice-label {
+		    margin-top: 20px;
+			position: absolute;
+			padding: 0px;
+			visibility:hidden;
+			display:none;
+			transform: translateY(-50%);
+			font-style: italic;
+		}
+		
+		label {
+		  font-family: "Trebuchet MS";
+		  font-size: 20px;
+		}
+	</style>
+  </head>
+  <body>
+    <div class="center">
+		<center><h1><font color="#73AD21">Speech-to-Text PoC</h1>(Node.js + IBM Watson API)</font></center><hr><br>
+		<label>Voice Control (Hold to record)</label>
+		<hr style="width:60%" align="left">
+		<img src="pics/mic.png" id="mic" width="50px" height="50px" onmousedown="startRecording();" onmouseup="stopRecording();">
+		<img src="pics/loading.gif" id="waiting" width="30px" height="30px" style="vertical-align: super;visibility:hidden;display:none">
+		<label class="voice-label" id="voice-label"></label>
+	</div>
+	<script>
+		var mediaRecorder;
+		var mediaConstraints = {
+			audio: true
+		};
+
+		function startRecording(){
+			$('#mic').prop("src", "pics/record.png");
+			navigator.getUserMedia(mediaConstraints, onMediaSuccess, onMediaError);
+			console.log("start recording");
+			$('#waiting').css({'display':'none', 'visibility':'hidden'});
+			$('#voice-label').empty();
+			$('#voice-label').css({'display':'none', 'visibility':'hidden'});
+			
+		}
+		
+		function stopRecording() {
+			$('#mic').prop("src", "pics/mic.png");
+			mediaRecorder.stop();
+			console.log("stop recording")
+			$('#waiting').css({'display':'inline-block', 'visibility':'visible'});
+		}
+		
+		function onMediaSuccess(stream) {
+			console.log("onMediaSuccess")
+			mediaRecorder = new MediaStreamRecorder(stream);			
+			mediaRecorder.mimeType = 'audio/wav';
+			mediaRecorder.ondataavailable = function (blob) {
+				var file = new File([blob], 'msr-' + (new Date).toISOString().replace(/:|\./g, '-') + '.wav', {
+					type: 'audio/wav'
+				}); 
+				var formData = new FormData();
+				formData.append('video-filename', file.name);
+				formData.append('video-blob', file);
+
+			    var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+						console.log("Done.");
+						$('#waiting').css({'display':'none', 'visibility':'hidden'});
+						console.log(xmlhttp.responseText);
+						$('#voice-label').text(xmlhttp.responseText);
+						$('#voice-label').css({'display': 'inline-block', 'visibility':'visible'});
+					} else if(xmlhttp.readyState == 4 && xmlhttp.status != 200) {
+					    $('#waiting').css({'display':'none', 'visibility':'hidden'});
+					    $('#voice-label').text("Error Occurred!");
+						$('#voice-label').css({'display': 'inline-block', 'visibility':'visible'});
+					}
+				};
+				xmlhttp.open("POST", "/sendVoice");
+				xmlhttp.send(formData);
+			};
+			mediaRecorder.start(10000);
+		}
+
+		function onMediaError(e) {
+			console.error('error', e);
+		}
+	</script>
+  </body>
+</html>
